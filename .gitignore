@@ -1,0 +1,21 @@
+# Binary
+devjournal
+
+# Database
+journal.db
+
+# Object files
+*.o
+*.so
+*.a
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
