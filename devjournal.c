@@ -3,6 +3,52 @@
 #include <string.h>
 #include <time.h>
 #include <sqlite3.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+// Function to get the database path in user's home directory
+char *get_db_path() {
+    const char *home = getenv("HOME");
+    if (!home) {
+        fprintf(stderr, "Cannot determine HOME directory\n");
+        return NULL;
+    }
+    
+    // Create data directory path: ~/.local/share/devjournal
+    char *data_dir = malloc(strlen(home) + 30);
+    sprintf(data_dir, "%s/.local/share/devjournal", home);
+    
+    // Create directory if it doesn't exist
+    mkdir(data_dir, 0755);
+    
+    // Create full database path
+    char *db_path = malloc(strlen(data_dir) + 20);
+    sprintf(db_path, "%s/journal.db", data_dir);
+    
+    free(data_dir);
+    return db_path;
+}
+
+// Function to initialize database schema
+int init_database(sqlite3 *db) {
+    const char *schema = 
+        "CREATE TABLE IF NOT EXISTS Entries ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "Date TEXT NOT NULL, "
+        "Subject TEXT NOT NULL, "
+        "Achievement TEXT NOT NULL, "
+        "created_at TIMESTAMP DEFAULT (datetime('now', 'localtime'))"
+        ");";
+    
+    char *err_msg = 0;
+    int rc = sqlite3_exec(db, schema, 0, 0, &err_msg);
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Failed to create table: %s\n", err_msg);
+        sqlite3_free(err_msg);
+        return 1;
+    }
+    return 0;
+}
 
 // Function to read a line of input dynamically
 char *read_line(FILE *stream) {
@@ -67,11 +113,29 @@ int main() {
     sqlite3 *db;
     char *err_msg = 0;
 
+    // Get database path
+    char *db_path = get_db_path();
+    if (!db_path) {
+        free(subject);
+        free(achievement);
+        return 1;
+    }
+
     // Open the database
-    int rc = sqlite3_open("journal.db", &db);
+    int rc = sqlite3_open(db_path, &db);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
         sqlite3_close(db);
+        free(db_path);
+        free(subject);
+        free(achievement);
+        return 1;
+    }
+
+    // Initialize database schema
+    if (init_database(db) != 0) {
+        sqlite3_close(db);
+        free(db_path);
         free(subject);
         free(achievement);
         return 1;
@@ -107,6 +171,7 @@ int main() {
     sqlite3_close(db);
 
     // Free dynamically allocated memory
+    free(db_path);
     free(subject);
     free(achievement);
 

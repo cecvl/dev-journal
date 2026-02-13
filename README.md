@@ -5,6 +5,16 @@ Simple console application for tracking your learning achievements. This program
 Use an appropriate compiler to build the system, considering your operating system and preferences.
 Upon running the program, you will be prompted to enter the subject you are learning and your daily achievements.
 
+## make commands
+`make install` -  install program and database in system
+
+`make uninstall` - uninstall program
+
+`make run` - run bin
+
+`make cleanall` - delete database & bin
+
+
 ### Additional resources
 
 [Using sqlite in C](https://zetcode.com/db/sqlitec/)
