@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11
-LDFLAGS = -lsqlite3
+LDFLAGS = -lsqlcipher
 TARGET = devjournal
 SRC = devjournal.c
 DB = journal.db

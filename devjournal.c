@@ -5,6 +5,42 @@
 #include <sqlite3.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <termios.h>
+
+// Function to securely read password without echoing to terminal
+char *read_password(const char *prompt) {
+    struct termios old_term, new_term;
+    char *password = malloc(256);
+    if (!password) return NULL;
+    
+    printf("%s", prompt);
+    fflush(stdout);
+    
+    // Disable echo
+    tcgetattr(STDIN_FILENO, &old_term);
+    new_term = old_term;
+    new_term.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &new_term);
+    
+    // Read password
+    if (fgets(password, 256, stdin) == NULL) {
+        free(password);
+        tcsetattr(STDIN_FILENO, TCSANOW, &old_term);
+        return NULL;
+    }
+    
+    // Restore echo
+    tcsetattr(STDIN_FILENO, TCSANOW, &old_term);
+    printf("\n");
+    
+    // Remove newline
+    size_t len = strlen(password);
+    if (len > 0 && password[len-1] == '\n') {
+        password[len-1] = '\0';
+    }
+    
+    return password;
+}
 
 // Function to get the database path in user's home directory
 char *get_db_path() {
@@ -121,10 +157,40 @@ int main() {
         return 1;
     }
 
+    // Get password for database encryption
+    char *password = read_password("\nEnter database password: ");
+    if (!password) {
+        fprintf(stderr, "Error reading password\n");
+        free(db_path);
+        free(subject);
+        free(achievement);
+        return 1;
+    }
+
     // Open the database
     int rc = sqlite3_open(db_path, &db);
     if (rc != SQLITE_OK) {
         fprintf(stderr, "Cannot open database: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        free(db_path);
+        free(password);
+        free(subject);
+        free(achievement);
+        return 1;
+    }
+
+    // Set encryption key
+    char key_sql[512];
+    snprintf(key_sql, sizeof(key_sql), "PRAGMA key = '%s';", password);
+    rc = sqlite3_exec(db, key_sql, NULL, NULL, &err_msg);
+    
+    // Clear password from memory for security
+    memset(password, 0, strlen(password));
+    free(password);
+    
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Failed to set encryption key: %s\n", err_msg);
+        sqlite3_free(err_msg);
         sqlite3_close(db);
         free(db_path);
         free(subject);
